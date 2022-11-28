@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: checker-sa
+  namespace: test
+---
+apiVersion: rbac.authorization.k8s.io/v1 
+kind: ClusterRoleBinding
+metadata:
+  name: checker-sa
+subjects:
+- kind: ServiceAccount
+  name: checker-sa
+  namespace: test
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-reader
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: checker
+  namespace: test
+spec:
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: checker
+            image: quay.io/openshift/origin-cli:4.10
+            imagePullPolicy: IfNotPresent
+            command:
+            - /bin/sh
+            - /var/lib/script/check-ms.sh
+            volumeMounts:
+            - mountPath: /var/lib/script
+              name: script-cm
+          serviceAccount: checker-sa
+          serviceAccountName: checker-sa
+          restartPolicy: Never
+          volumes:
+          - configMap:
+              defaultMode: 420
+              name: script
+            name: script-cm

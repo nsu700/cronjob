@@ -1,0 +1,23 @@
+apiVersion: v1
+data:
+  check-ms.sh: |-
+    #!/bin/sh
+    # Alert when number of nodes reach the percentage of max nodes
+    PER=0.1
+
+    alert() {
+        echo "machineset $1 is reaching the limit"
+    }
+
+    for ms in `oc get machineautoscaler -n openshift-machine-api -o jsonpath='{range .items[*]}{.spec.scaleTargetRef.name}{"+"}{.spec.maxReplicas}{"\n"}{end}'`;
+      do
+        ms_name=$(echo $ms|cut -f1 -d "+")
+        ms_max=$(echo $ms|cut -f2 -d "+")
+        ms_current=$(oc get machineset $ms_name -n openshift-machine-api -o jsonpath='{.status.readyReplicas}')
+        t=$(echo $ms_max $PER | awk '{printf "%d\n",$1*$2}')
+        [ $ms_current -ge $t ] && alert $ms_name
+    done
+kind: ConfigMap
+metadata:
+  name: script
+  namespace: test
